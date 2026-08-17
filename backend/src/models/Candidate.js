@@ -1,61 +1,5 @@
 const mongoose = require("mongoose");
 
-const educationSchema = new mongoose.Schema(
-  {
-    degree: {
-      type: String,
-      trim: true,
-    },
-
-    institution: {
-      type: String,
-      trim: true,
-    },
-
-    field: {
-      type: String,
-      trim: true,
-    },
-
-    startYear: {
-      type: Number,
-    },
-
-    endYear: {
-      type: Number,
-    },
-  },
-  { _id: false }
-);
-
-const experienceSchema = new mongoose.Schema(
-  {
-    company: {
-      type: String,
-      trim: true,
-    },
-
-    position: {
-      type: String,
-      trim: true,
-    },
-
-    description: {
-      type: String,
-      trim: true,
-    },
-
-    startDate: {
-      type: Date,
-    },
-
-    endDate: {
-      type: Date,
-    },
-  },
-  { _id: false }
-);
-
 const candidateSchema = new mongoose.Schema(
   {
     user: {
@@ -74,12 +18,17 @@ const candidateSchema = new mongoose.Schema(
       type: Date,
     },
 
-    location: {
+    address: {
       type: String,
       trim: true,
     },
 
-    bio: {
+    city: {
+      type: String,
+      trim: true,
+    },
+
+    country: {
       type: String,
       trim: true,
     },
@@ -91,25 +40,54 @@ const candidateSchema = new mongoose.Schema(
       },
     ],
 
-    education: [educationSchema],
+    education: [
+      {
+        institution: {
+          type: String,
+          trim: true,
+        },
+        degree: {
+          type: String,
+          trim: true,
+        },
+        fieldOfStudy: {
+          type: String,
+          trim: true,
+        },
+        startYear: Number,
+        endYear: Number,
+      },
+    ],
 
-    experience: [experienceSchema],
+    experience: [
+      {
+        company: {
+          type: String,
+          trim: true,
+        },
+        position: {
+          type: String,
+          trim: true,
+        },
+        startDate: Date,
+        endDate: Date,
+        description: {
+          type: String,
+          trim: true,
+        },
+      },
+    ],
 
     resume: {
-      url: {
-        type: String,
-        trim: true,
-      },
-
-      publicId: {
-        type: String,
-        trim: true,
-      },
-
       fileName: {
         type: String,
         trim: true,
       },
+      fileUrl: {
+        type: String,
+        trim: true,
+      },
+      uploadedAt: Date,
     },
   },
   {
