@@ -84,7 +84,7 @@ const getJobs = async (req, res) => {
     } = req.query;
 
     const filter = {
-      status: "Open",
+      status: "open",
     };
 
     // Search by job title, company name, description, or skills
@@ -167,8 +167,35 @@ const getJobs = async (req, res) => {
     });
   }
 };
+const getJobById = async (req, res) => {
+  try {
+    const job = await Job.findOne({
+      _id: req.params.id,
+      status: "open",
+    }).populate({
+      path: "recruiter",
+      select: "companyName companyDescription",
+    });
 
+    if (!job) {
+      return res.status(404).json({
+        message: "Job not found",
+      });
+    }
+
+    return res.status(200).json({
+      job,
+    });
+  } catch (error) {
+    console.error("Get job details error:", error);
+
+    return res.status(500).json({
+      message: "Server error while fetching job details",
+    });
+  }
+};
 module.exports = {
   createJob,
   getJobs,
+  getJobById,
 };

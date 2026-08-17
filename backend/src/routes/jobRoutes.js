@@ -3,6 +3,7 @@ const express = require("express");
 const {
   createJob,
   getJobs,
+  getJobById,
 } = require("../controllers/jobController");
 const protect = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
@@ -16,5 +17,6 @@ router.post(
   createJob
 );
 router.get("/", getJobs);
+router.get("/:id", getJobById);
 
 module.exports = router;
