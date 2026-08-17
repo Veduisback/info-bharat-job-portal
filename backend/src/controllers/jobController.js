@@ -194,8 +194,121 @@ const getJobById = async (req, res) => {
     });
   }
 };
+const updateJob = async (req, res) => {
+  try {
+    const recruiter = await Recruiter.findOne({
+      user: req.user._id,
+    });
+
+    if (!recruiter) {
+      return res.status(404).json({
+        message: "Recruiter profile not found",
+      });
+    }
+
+    const job = await Job.findOne({
+      _id: req.params.id,
+      recruiter: recruiter._id,
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        message: "Job not found or you do not have permission to edit it",
+      });
+    }
+
+    const allowedFields = [
+      "title",
+      "companyName",
+      "location",
+      "salaryMin",
+      "salaryMax",
+      "skills",
+      "experienceRequired",
+      "description",
+      "employmentType",
+      "applicationDeadline",
+    ];
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        job[field] = req.body[field];
+      }
+    });
+
+    if (
+      job.salaryMin !== undefined &&
+      job.salaryMax !== undefined &&
+      Number(job.salaryMin) > Number(job.salaryMax)
+    ) {
+      return res.status(400).json({
+        message: "Minimum salary cannot be greater than maximum salary",
+      });
+    }
+
+    await job.save();
+
+    return res.status(200).json({
+      message: "Job updated successfully",
+      job,
+    });
+  } catch (error) {
+    console.error("Update job error:", error);
+
+    return res.status(500).json({
+      message: "Server error while updating job",
+    });
+  }
+};
+const closeJob = async (req, res) => {
+  try {
+    const recruiter = await Recruiter.findOne({
+      user: req.user._id,
+    });
+
+    if (!recruiter) {
+      return res.status(404).json({
+        message: "Recruiter profile not found",
+      });
+    }
+
+    const job = await Job.findOne({
+      _id: req.params.id,
+      recruiter: recruiter._id,
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        message: "Job not found or you do not have permission",
+      });
+    }
+
+    if (job.status === "closed") {
+      return res.status(400).json({
+        message: "Job is already closed",
+      });
+    }
+
+    job.status = "closed";
+
+    await job.save();
+
+    return res.status(200).json({
+      message: "Job closed successfully",
+      job,
+    });
+  } catch (error) {
+    console.error("Close job error:", error);
+
+    return res.status(500).json({
+      message: "Server error while closing job",
+    });
+  }
+};
 module.exports = {
   createJob,
   getJobs,
   getJobById,
+  updateJob,
+  closeJob,
 };

@@ -4,6 +4,8 @@ const {
   createJob,
   getJobs,
   getJobById,
+  updateJob,
+  closeJob,
 } = require("../controllers/jobController");
 const protect = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
@@ -16,7 +18,19 @@ router.post(
   authorizeRoles("recruiter"),
   createJob
 );
+
 router.get("/", getJobs);
 router.get("/:id", getJobById);
-
+router.put(
+  "/:id",
+  protect,
+  authorizeRoles("recruiter"),
+  updateJob
+);
+router.patch(
+  "/:id/close",
+  protect,
+  authorizeRoles("recruiter"),
+  closeJob
+);
 module.exports = router;
