@@ -2,7 +2,7 @@ const authRoutes = require("./routes/authRoutes");
 const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
-
+const jobRoutes = require("./routes/jobRoutes");
 dotenv.config();
 
 const app = express();
@@ -13,6 +13,7 @@ connectDB();
 
 app.use(express.json());
 app.use("/api/auth", authRoutes);
+app.use("/api/jobs", jobRoutes);
 
 app.get("/", (req, res) => {
   res.json({
