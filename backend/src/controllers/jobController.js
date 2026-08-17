@@ -72,15 +72,91 @@ const createJob = async (req, res) => {
 
 const getJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ status: "Open" })
+    const {
+      search,
+      location,
+      employmentType,
+      minSalary,
+      maxSalary,
+      experienceRequired,
+      page = 1,
+      limit = 10,
+    } = req.query;
+
+    const filter = {
+      status: "Open",
+    };
+
+    // Search by job title, company name, description, or skills
+    if (search) {
+      filter.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { companyName: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+        { skills: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    // Location filter
+    if (location) {
+      filter.location = {
+        $regex: location,
+        $options: "i",
+      };
+    }
+
+    // Employment type filter
+    if (employmentType) {
+      filter.employmentType = employmentType;
+    }
+
+    // Experience filter
+    if (experienceRequired) {
+      filter.experienceRequired = {
+        $regex: experienceRequired,
+        $options: "i",
+      };
+    }
+
+    // Salary filters
+    if (minSalary) {
+      filter.salaryMax = {
+        $gte: Number(minSalary),
+      };
+    }
+
+    if (maxSalary) {
+      filter.salaryMin = {
+        $lte: Number(maxSalary),
+      };
+    }
+
+    // Pagination
+    const currentPage = Math.max(Number(page), 1);
+    const itemsPerPage = Math.min(Math.max(Number(limit), 1), 50);
+
+    const skip = (currentPage - 1) * itemsPerPage;
+
+    const totalJobs = await Job.countDocuments(filter);
+
+    const jobs = await Job.find(filter)
       .populate({
         path: "recruiter",
         select: "companyName companyDescription",
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(itemsPerPage);
+
+    const totalPages = Math.ceil(totalJobs / itemsPerPage);
 
     return res.status(200).json({
       count: jobs.length,
+      totalJobs,
+      currentPage,
+      totalPages,
+      hasNextPage: currentPage < totalPages,
+      hasPreviousPage: currentPage > 1,
       jobs,
     });
   } catch (error) {
