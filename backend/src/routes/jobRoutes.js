@@ -6,6 +6,7 @@ const {
   getJobById,
   updateJob,
   closeJob,
+  deleteJob,
 } = require("../controllers/jobController");
 const protect = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
@@ -32,5 +33,11 @@ router.patch(
   protect,
   authorizeRoles("recruiter"),
   closeJob
+);
+router.delete(
+  "/:id",
+  protect,
+  authorizeRoles("recruiter"),
+  deleteJob
 );
 module.exports = router;

@@ -305,10 +305,47 @@ const closeJob = async (req, res) => {
     });
   }
 };
+const deleteJob = async (req, res) => {
+  try {
+    const recruiter = await Recruiter.findOne({
+      user: req.user._id,
+    });
+
+    if (!recruiter) {
+      return res.status(404).json({
+        message: "Recruiter profile not found",
+      });
+    }
+
+    const job = await Job.findOne({
+      _id: req.params.id,
+      recruiter: recruiter._id,
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        message: "Job not found or you do not have permission",
+      });
+    }
+
+    await Job.findByIdAndDelete(job._id);
+
+    return res.status(200).json({
+      message: "Job deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete job error:", error);
+
+    return res.status(500).json({
+      message: "Server error while deleting job",
+    });
+  }
+};
 module.exports = {
   createJob,
   getJobs,
   getJobById,
   updateJob,
   closeJob,
+  deleteJob,
 };
