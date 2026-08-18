@@ -6,12 +6,7 @@ const interviewSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Application",
       required: true,
-    },
-
-    candidate: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Candidate",
-      required: true,
+      unique: true,
     },
 
     recruiter: {
@@ -20,9 +15,21 @@ const interviewSchema = new mongoose.Schema(
       required: true,
     },
 
+    candidate: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Candidate",
+      required: true,
+    },
+
     scheduledAt: {
       type: Date,
       required: true,
+    },
+
+    duration: {
+      type: Number,
+      default: 60,
+      min: 15,
     },
 
     interviewType: {
@@ -31,25 +38,25 @@ const interviewSchema = new mongoose.Schema(
       default: "Online",
     },
 
+    meetingLink: {
+      type: String,
+      trim: true,
+    },
+
     location: {
       type: String,
       trim: true,
     },
 
-    meetingLink: {
+    notes: {
       type: String,
       trim: true,
     },
 
     status: {
       type: String,
-      enum: ["Scheduled", "Completed", "Passed", "Failed"],
+      enum: ["Scheduled", "Completed", "Cancelled"],
       default: "Scheduled",
-    },
-
-    notes: {
-      type: String,
-      trim: true,
     },
   },
   {

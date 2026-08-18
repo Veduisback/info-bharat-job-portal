@@ -151,8 +151,72 @@ const getRecruiterApplications = async (req, res) => {
     });
   }
 };
+const updateApplicationStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    const allowedStatuses = [
+      "Applied",
+      "Shortlisted",
+      "Rejected",
+      "Interview",
+      "Hired",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid application status",
+        allowedStatuses,
+      });
+    }
+
+    const recruiter = await Recruiter.findOne({
+      user: req.user._id,
+    });
+
+    if (!recruiter) {
+      return res.status(404).json({
+        message: "Recruiter profile not found",
+      });
+    }
+
+    const application = await Application.findById(req.params.id)
+      .populate("job", "recruiter title companyName")
+      .populate("candidate", "user");
+
+    if (!application) {
+      return res.status(404).json({
+        message: "Application not found",
+      });
+    }
+
+    if (
+      application.job.recruiter.toString() !==
+      recruiter._id.toString()
+    ) {
+      return res.status(403).json({
+        message: "You are not authorized to update this application",
+      });
+    }
+
+    application.status = status;
+    await application.save();
+
+    return res.status(200).json({
+      message: "Application status updated successfully",
+      application,
+    });
+  } catch (error) {
+    console.error("Update application status error:", error);
+
+    return res.status(500).json({
+      message: "Server error while updating application status",
+    });
+  }
+};
 module.exports = {
   applyToJob,
   getMyApplications,
   getRecruiterApplications,
+  updateApplicationStatus,
 };
