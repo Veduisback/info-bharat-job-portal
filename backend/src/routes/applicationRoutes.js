@@ -3,6 +3,7 @@ const express = require("express");
 const {
   applyToJob,
   getMyApplications,
+  getRecruiterApplications,
 } = require("../controllers/applicationController");
 const protect = require("../middleware/authMiddleware");
 const authorizeRoles = require("../middleware/roleMiddleware");
@@ -20,5 +21,11 @@ router.get(
   protect,
   authorizeRoles("candidate"),
   getMyApplications
+);
+router.get(
+  "/recruiter",
+  protect,
+  authorizeRoles("recruiter"),
+  getRecruiterApplications
 );
 module.exports = router;

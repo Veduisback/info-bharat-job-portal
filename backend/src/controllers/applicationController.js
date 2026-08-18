@@ -1,7 +1,7 @@
 const Application = require("../models/Application");
 const Candidate = require("../models/Candidate");
 const Job = require("../models/Job");
-
+const Recruiter = require("../models/Recruiter");
 const applyToJob = async (req, res) => {
   try {
     const { jobId, coverLetter } = req.body;
@@ -104,7 +104,55 @@ const getMyApplications = async (req, res) => {
     });
   }
 };
+const getRecruiterApplications = async (req, res) => {
+  try {
+    const recruiter = await Recruiter.findOne({
+      user: req.user._id,
+    });
+
+    if (!recruiter) {
+      return res.status(404).json({
+        message: "Recruiter profile not found",
+      });
+    }
+
+    const jobs = await Job.find({
+      recruiter: recruiter._id,
+    }).select("_id");
+
+    const jobIds = jobs.map((job) => job._id);
+
+    const applications = await Application.find({
+      job: { $in: jobIds },
+    })
+      .populate(
+        "job",
+        "title companyName location employmentType"
+      )
+      .populate({
+        path: "candidate",
+        select: "phone city country skills education experience resume",
+        populate: {
+          path: "user",
+          select: "name email",
+        },
+      })
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      count: applications.length,
+      applications,
+    });
+  } catch (error) {
+    console.error("Get recruiter applications error:", error);
+
+    return res.status(500).json({
+      message: "Server error while fetching recruiter applications",
+    });
+  }
+};
 module.exports = {
   applyToJob,
   getMyApplications,
+  getRecruiterApplications,
 };
