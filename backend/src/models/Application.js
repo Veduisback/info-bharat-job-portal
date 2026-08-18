@@ -2,34 +2,16 @@ const mongoose = require("mongoose");
 
 const applicationSchema = new mongoose.Schema(
   {
-    candidate: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Candidate",
-      required: true,
-    },
-
     job: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Job",
       required: true,
     },
 
-    recruiter: {
+    candidate: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Recruiter",
+      ref: "Candidate",
       required: true,
-    },
-
-    resume: {
-      url: {
-        type: String,
-        trim: true,
-      },
-
-      fileName: {
-        type: String,
-        trim: true,
-      },
     },
 
     coverLetter: {
@@ -41,18 +23,12 @@ const applicationSchema = new mongoose.Schema(
       type: String,
       enum: [
         "Applied",
-        "Under Review",
         "Shortlisted",
-        "Interview Scheduled",
-        "Selected",
         "Rejected",
+        "Interview",
+        "Hired",
       ],
       default: "Applied",
-    },
-
-    notes: {
-      type: String,
-      trim: true,
     },
   },
   {
@@ -60,6 +36,9 @@ const applicationSchema = new mongoose.Schema(
   }
 );
 
-applicationSchema.index({ candidate: 1, job: 1 }, { unique: true });
+applicationSchema.index(
+  { job: 1, candidate: 1 },
+  { unique: true }
+);
 
 module.exports = mongoose.model("Application", applicationSchema);
