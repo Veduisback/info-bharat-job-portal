@@ -1,8 +1,10 @@
+const upload = require("../middleware/uploadMiddleware");
 const express = require("express");
 
 const {
   getProfile,
   updateProfile,
+  uploadResume,
 } = require("../controllers/candidateController");
 
 const protect = require("../middleware/authMiddleware");
@@ -23,5 +25,11 @@ router.put(
   authorizeRoles("candidate"),
   updateProfile
 );
-
+router.post(
+  "/profile/resume",
+  protect,
+  authorizeRoles("candidate"),
+  upload.single("resume"),
+  uploadResume
+);
 module.exports = router;
