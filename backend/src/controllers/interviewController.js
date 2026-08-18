@@ -97,7 +97,49 @@ const scheduleInterview = async (req, res) => {
     });
   }
 };
+const getMyInterviews = async (req, res) => {
+  try {
+    const Candidate = require("../models/Candidate");
 
+    const candidate = await Candidate.findOne({
+      user: req.user._id,
+    });
+
+    if (!candidate) {
+      return res.status(404).json({
+        message: "Candidate profile not found",
+      });
+    }
+
+    const interviews = await Interview.find({
+      candidate: candidate._id,
+    })
+      .populate({
+        path: "application",
+        populate: {
+          path: "job",
+          select: "title companyName location",
+        },
+      })
+      .populate({
+        path: "recruiter",
+        select: "companyName",
+      })
+      .sort({ scheduledAt: 1 });
+
+    return res.status(200).json({
+      count: interviews.length,
+      interviews,
+    });
+  } catch (error) {
+    console.error("Get my interviews error:", error);
+
+    return res.status(500).json({
+      message: "Server error while fetching interviews",
+    });
+  }
+};
 module.exports = {
   scheduleInterview,
+  getMyInterviews,
 };
