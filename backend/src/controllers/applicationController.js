@@ -71,7 +71,40 @@ const applyToJob = async (req, res) => {
     });
   }
 };
+const getMyApplications = async (req, res) => {
+  try {
+    const candidate = await Candidate.findOne({
+      user: req.user._id,
+    });
 
+    if (!candidate) {
+      return res.status(404).json({
+        message: "Candidate profile not found",
+      });
+    }
+
+    const applications = await Application.find({
+      candidate: candidate._id,
+    })
+      .populate(
+        "job",
+        "title companyName location salaryMin salaryMax employmentType status applicationDeadline"
+      )
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      count: applications.length,
+      applications,
+    });
+  } catch (error) {
+    console.error("Get my applications error:", error);
+
+    return res.status(500).json({
+      message: "Server error while fetching applications",
+    });
+  }
+};
 module.exports = {
   applyToJob,
+  getMyApplications,
 };
