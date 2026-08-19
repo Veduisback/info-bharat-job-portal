@@ -139,7 +139,65 @@ const getMyInterviews = async (req, res) => {
     });
   }
 };
+const updateInterviewStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    const allowedStatuses = ["Scheduled", "Completed", "Cancelled"];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid interview status",
+        allowedStatuses,
+      });
+    }
+
+    const recruiter = await Recruiter.findOne({
+      user: req.user._id,
+    });
+
+    if (!recruiter) {
+      return res.status(404).json({
+        message: "Recruiter profile not found",
+      });
+    }
+
+    const interview = await Interview.findById(req.params.id)
+      .populate("application")
+      .populate("recruiter");
+
+    if (!interview) {
+      return res.status(404).json({
+        message: "Interview not found",
+      });
+    }
+
+    if (
+      interview.recruiter._id.toString() !==
+      recruiter._id.toString()
+    ) {
+      return res.status(403).json({
+        message: "You are not authorized to update this interview",
+      });
+    }
+
+    interview.status = status;
+    await interview.save();
+
+    return res.status(200).json({
+      message: "Interview status updated successfully",
+      interview,
+    });
+  } catch (error) {
+    console.error("Update interview status error:", error);
+
+    return res.status(500).json({
+      message: "Server error while updating interview status",
+    });
+  }
+};
 module.exports = {
   scheduleInterview,
   getMyInterviews,
+  updateInterviewStatus,
 };
