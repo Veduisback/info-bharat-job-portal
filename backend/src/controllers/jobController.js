@@ -1,5 +1,10 @@
 const Job = require("../models/Job");
 const Recruiter = require("../models/Recruiter");
+const Application = require("../models/Application");
+
+// =========================
+// CREATE JOB
+// =========================
 
 const createJob = async (req, res) => {
   try {
@@ -13,13 +18,19 @@ const createJob = async (req, res) => {
       experienceRequired,
       description,
       employmentType,
+      openings,
       applicationDeadline,
     } = req.body;
 
-    if (!title || !companyName || !location || !description) {
+    if (
+      !title ||
+      !companyName ||
+      !location ||
+      !description
+    ) {
       return res.status(400).json({
         message:
-          "Title, company name, location, and description are required",
+          "Title, company name, location and description are required",
       });
     }
 
@@ -33,13 +44,15 @@ const createJob = async (req, res) => {
       });
     }
 
+    const numberOfOpenings = Number(openings);
+
     if (
-      salaryMin !== undefined &&
-      salaryMax !== undefined &&
-      Number(salaryMin) > Number(salaryMax)
+      !Number.isInteger(numberOfOpenings) ||
+      numberOfOpenings < 1
     ) {
       return res.status(400).json({
-        message: "Minimum salary cannot be greater than maximum salary",
+        message:
+          "Number of openings must be a whole number greater than 0",
       });
     }
 
@@ -54,7 +67,9 @@ const createJob = async (req, res) => {
       experienceRequired,
       description,
       employmentType,
+      openings: numberOfOpenings,
       applicationDeadline,
+      status: "open",
     });
 
     return res.status(201).json({
@@ -70,94 +85,49 @@ const createJob = async (req, res) => {
   }
 };
 
+// =========================
+// GET PUBLIC JOBS
+// ONLY OPEN JOBS WITH SLOTS
+// =========================
+
 const getJobs = async (req, res) => {
   try {
-    const {
-      search,
-      location,
-      employmentType,
-      minSalary,
-      maxSalary,
-      experienceRequired,
-      page = 1,
-      limit = 10,
-    } = req.query;
-
-    const filter = {
+    const jobs = await Job.find({
       status: "open",
-    };
+    })
+      .populate(
+        "recruiter",
+        "companyName phone city country"
+      )
+      .sort({ createdAt: -1 });
 
-    // Search by job title, company name, description, or skills
-    if (search) {
-      filter.$or = [
-        { title: { $regex: search, $options: "i" } },
-        { companyName: { $regex: search, $options: "i" } },
-        { description: { $regex: search, $options: "i" } },
-        { skills: { $regex: search, $options: "i" } },
-      ];
+    const jobsWithSlots = [];
+
+    for (const job of jobs) {
+      const hiredCount =
+        await Application.countDocuments({
+          job: job._id,
+          status: "Hired",
+        });
+
+      const slotsRemaining = Math.max(
+        job.openings - hiredCount,
+        0
+      );
+
+      // Only show jobs that still have openings
+      if (slotsRemaining > 0) {
+        jobsWithSlots.push({
+          ...job.toObject(),
+          hiredCount,
+          slotsRemaining,
+        });
+      }
     }
-
-    // Location filter
-    if (location) {
-      filter.location = {
-        $regex: location,
-        $options: "i",
-      };
-    }
-
-    // Employment type filter
-    if (employmentType) {
-      filter.employmentType = employmentType;
-    }
-
-    // Experience filter
-    if (experienceRequired) {
-      filter.experienceRequired = {
-        $regex: experienceRequired,
-        $options: "i",
-      };
-    }
-
-    // Salary filters
-    if (minSalary) {
-      filter.salaryMax = {
-        $gte: Number(minSalary),
-      };
-    }
-
-    if (maxSalary) {
-      filter.salaryMin = {
-        $lte: Number(maxSalary),
-      };
-    }
-
-    // Pagination
-    const currentPage = Math.max(Number(page), 1);
-    const itemsPerPage = Math.min(Math.max(Number(limit), 1), 50);
-
-    const skip = (currentPage - 1) * itemsPerPage;
-
-    const totalJobs = await Job.countDocuments(filter);
-
-    const jobs = await Job.find(filter)
-      .populate({
-        path: "recruiter",
-        select: "companyName companyDescription",
-      })
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(itemsPerPage);
-
-    const totalPages = Math.ceil(totalJobs / itemsPerPage);
 
     return res.status(200).json({
-      count: jobs.length,
-      totalJobs,
-      currentPage,
-      totalPages,
-      hasNextPage: currentPage < totalPages,
-      hasPreviousPage: currentPage > 1,
-      jobs,
+      count: jobsWithSlots.length,
+      jobs: jobsWithSlots,
     });
   } catch (error) {
     console.error("Get jobs error:", error);
@@ -167,15 +137,17 @@ const getJobs = async (req, res) => {
     });
   }
 };
+
+// =========================
+// GET SINGLE JOB
+// =========================
+
 const getJobById = async (req, res) => {
   try {
-    const job = await Job.findOne({
-      _id: req.params.id,
-      status: "open",
-    }).populate({
-      path: "recruiter",
-      select: "companyName companyDescription",
-    });
+    const job = await Job.findById(req.params.id).populate(
+      "recruiter",
+      "companyName phone city country"
+    );
 
     if (!job) {
       return res.status(404).json({
@@ -183,17 +155,95 @@ const getJobById = async (req, res) => {
       });
     }
 
+    const hiredCount =
+      await Application.countDocuments({
+        job: job._id,
+        status: "Hired",
+      });
+
+    const slotsRemaining = Math.max(
+      job.openings - hiredCount,
+      0
+    );
+
     return res.status(200).json({
-      job,
+      job: {
+        ...job.toObject(),
+        hiredCount,
+        slotsRemaining,
+      },
     });
   } catch (error) {
-    console.error("Get job details error:", error);
+    console.error("Get job error:", error);
 
     return res.status(500).json({
-      message: "Server error while fetching job details",
+      message: "Server error while fetching job",
     });
   }
 };
+
+// =========================
+// GET RECRUITER JOBS
+// =========================
+
+const getRecruiterJobs = async (req, res) => {
+  try {
+    const recruiter = await Recruiter.findOne({
+      user: req.user._id,
+    });
+
+    if (!recruiter) {
+      return res.status(404).json({
+        message: "Recruiter profile not found",
+      });
+    }
+
+    const jobs = await Job.find({
+      recruiter: recruiter._id,
+    }).sort({ createdAt: -1 });
+
+    const jobsWithSlots = await Promise.all(
+      jobs.map(async (job) => {
+        const hiredCount =
+          await Application.countDocuments({
+            job: job._id,
+            status: "Hired",
+          });
+
+        const slotsRemaining = Math.max(
+          job.openings - hiredCount,
+          0
+        );
+
+        return {
+          ...job.toObject(),
+          hiredCount,
+          slotsRemaining,
+        };
+      })
+    );
+
+    return res.status(200).json({
+      count: jobsWithSlots.length,
+      jobs: jobsWithSlots,
+    });
+  } catch (error) {
+    console.error(
+      "Get recruiter jobs error:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        "Server error while fetching recruiter jobs",
+    });
+  }
+};
+
+// =========================
+// UPDATE JOB
+// =========================
+
 const updateJob = async (req, res) => {
   try {
     const recruiter = await Recruiter.findOne({
@@ -206,14 +256,21 @@ const updateJob = async (req, res) => {
       });
     }
 
-    const job = await Job.findOne({
-      _id: req.params.id,
-      recruiter: recruiter._id,
-    });
+    const job = await Job.findById(req.params.id);
 
     if (!job) {
       return res.status(404).json({
-        message: "Job not found or you do not have permission to edit it",
+        message: "Job not found",
+      });
+    }
+
+    if (
+      job.recruiter.toString() !==
+      recruiter._id.toString()
+    ) {
+      return res.status(403).json({
+        message:
+          "You are not authorized to update this job",
       });
     }
 
@@ -227,6 +284,7 @@ const updateJob = async (req, res) => {
       "experienceRequired",
       "description",
       "employmentType",
+      "openings",
       "applicationDeadline",
     ];
 
@@ -236,14 +294,43 @@ const updateJob = async (req, res) => {
       }
     });
 
-    if (
-      job.salaryMin !== undefined &&
-      job.salaryMax !== undefined &&
-      Number(job.salaryMin) > Number(job.salaryMax)
-    ) {
-      return res.status(400).json({
-        message: "Minimum salary cannot be greater than maximum salary",
+    const hiredCount =
+      await Application.countDocuments({
+        job: job._id,
+        status: "Hired",
       });
+
+    if (req.body.openings !== undefined) {
+      const numberOfOpenings = Number(
+        req.body.openings
+      );
+
+      if (
+        !Number.isInteger(numberOfOpenings) ||
+        numberOfOpenings < 1
+      ) {
+        return res.status(400).json({
+          message:
+            "Openings must be a whole number greater than 0",
+        });
+      }
+
+      if (numberOfOpenings < hiredCount) {
+        return res.status(400).json({
+          message:
+            "Openings cannot be less than candidates already hired",
+          hiredCount,
+        });
+      }
+
+      job.openings = numberOfOpenings;
+    }
+
+    // Automatically determine status
+    if (hiredCount >= job.openings) {
+      job.status = "closed";
+    } else {
+      job.status = "open";
     }
 
     await job.save();
@@ -260,6 +347,11 @@ const updateJob = async (req, res) => {
     });
   }
 };
+
+// =========================
+// CLOSE JOB MANUALLY
+// =========================
+
 const closeJob = async (req, res) => {
   try {
     const recruiter = await Recruiter.findOne({
@@ -272,20 +364,21 @@ const closeJob = async (req, res) => {
       });
     }
 
-    const job = await Job.findOne({
-      _id: req.params.id,
-      recruiter: recruiter._id,
-    });
+    const job = await Job.findById(req.params.id);
 
     if (!job) {
       return res.status(404).json({
-        message: "Job not found or you do not have permission",
+        message: "Job not found",
       });
     }
 
-    if (job.status === "closed") {
-      return res.status(400).json({
-        message: "Job is already closed",
+    if (
+      job.recruiter.toString() !==
+      recruiter._id.toString()
+    ) {
+      return res.status(403).json({
+        message:
+          "You are not authorized to close this job",
       });
     }
 
@@ -305,6 +398,11 @@ const closeJob = async (req, res) => {
     });
   }
 };
+
+// =========================
+// DELETE JOB
+// =========================
+
 const deleteJob = async (req, res) => {
   try {
     const recruiter = await Recruiter.findOne({
@@ -317,18 +415,25 @@ const deleteJob = async (req, res) => {
       });
     }
 
-    const job = await Job.findOne({
-      _id: req.params.id,
-      recruiter: recruiter._id,
-    });
+    const job = await Job.findById(req.params.id);
 
     if (!job) {
       return res.status(404).json({
-        message: "Job not found or you do not have permission",
+        message: "Job not found",
       });
     }
 
-    await Job.findByIdAndDelete(job._id);
+    if (
+      job.recruiter.toString() !==
+      recruiter._id.toString()
+    ) {
+      return res.status(403).json({
+        message:
+          "You are not authorized to delete this job",
+      });
+    }
+
+    await Job.findByIdAndDelete(req.params.id);
 
     return res.status(200).json({
       message: "Job deleted successfully",
@@ -341,10 +446,12 @@ const deleteJob = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   createJob,
   getJobs,
   getJobById,
+  getRecruiterJobs,
   updateJob,
   closeJob,
   deleteJob,

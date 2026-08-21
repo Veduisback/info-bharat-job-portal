@@ -56,8 +56,25 @@ const jobSchema = new mongoose.Schema(
 
     employmentType: {
       type: String,
-      enum: ["Full-time", "Part-time", "Contract", "Internship", "Remote"],
+      enum: [
+        "Full-time",
+        "Part-time",
+        "Contract",
+        "Internship",
+        "Remote",
+      ],
       default: "Full-time",
+    },
+
+    // ==========================================
+    // NUMBER OF PEOPLE TO HIRE
+    // ==========================================
+
+    openings: {
+      type: Number,
+      required: true,
+      min: 1,
+      default: 1,
     },
 
     status: {
