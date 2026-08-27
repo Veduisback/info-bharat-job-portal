@@ -30,3 +30,15 @@ app.use("/api/admin", adminRoutes);
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+const express = require("express");
+const cors = require("cors");
+const app = express();
+
+// Allow requests from all origins (or specify your GitHub Pages URL)
+app.use(cors()); 
+
+// Alternatively, restrict to your specific frontend URL:
+// app.use(cors({ origin: "https://veduisback.github.io" }));
+
+app.use(express.json());

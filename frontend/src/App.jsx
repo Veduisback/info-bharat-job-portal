@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import "./index.css";
 
-const API_URL = "http://localhost:5000/api";
+// AFTER (Dynamic for Production & Localhost)
+const API_URL = process.env.REACT_APP_API_URL || "https://info-bharat-job-portal.onrender.com/api";
 
 function App() {
   const [jobs, setJobs] = useState([]);
