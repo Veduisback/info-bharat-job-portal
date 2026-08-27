@@ -6,6 +6,7 @@ const connectDB = require("./config/db");
 const jobRoutes = require("./routes/jobRoutes");
 const applicationRoutes = require("./routes/applicationRoutes");
 const interviewRoutes = require("./routes/interviewRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 dotenv.config();
 const candidateRoutes = require("./routes/candidateRoutes");
 const app = express();
@@ -25,7 +26,7 @@ app.get("/", (req, res) => {
     message: "Info Bharat Job Portal API is running",
   });
 });
-
+app.use("/api/admin", adminRoutes);
 app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });

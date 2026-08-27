@@ -41,7 +41,30 @@ const applyToJob = async (req, res) => {
       });
     }
 
-    // Check if candidate already applied
+    // =========================
+    // CHECK AVAILABLE SLOTS
+    // =========================
+
+    const hiredCount = await Application.countDocuments({
+      job: job._id,
+      status: "Hired",
+    });
+
+    const slotsRemaining = Math.max(
+      Number(job.openings || 0) - hiredCount,
+      0
+    );
+
+    if (slotsRemaining <= 0) {
+      return res.status(400).json({
+        message: "All positions for this job have been filled",
+      });
+    }
+
+    // =========================
+    // CHECK DUPLICATE APPLICATION
+    // =========================
+
     const existingApplication = await Application.findOne({
       job: jobId,
       candidate: candidate._id,
@@ -52,6 +75,10 @@ const applyToJob = async (req, res) => {
         message: "You have already applied for this job",
       });
     }
+
+    // =========================
+    // CREATE APPLICATION
+    // =========================
 
     const application = await Application.create({
       job: jobId,
@@ -125,27 +152,49 @@ const getRecruiterApplications = async (req, res) => {
       });
     }
 
+    // =========================
+    // FIND RECRUITER'S JOBS
+    // =========================
+
     const jobs = await Job.find({
       recruiter: recruiter._id,
     }).select("_id");
 
     const jobIds = jobs.map((job) => job._id);
 
+    // =========================
+    // FIND APPLICATIONS
+    // =========================
+
     const applications = await Application.find({
       job: { $in: jobIds },
     })
-      .populate("candidate")
+      // Populate candidate profile
+      .populate({
+        path: "candidate",
+        // Populate the User linked to Candidate
+        populate: {
+          path: "user",
+          select: "name email role",
+        },
+      })
+      // Populate job information
       .populate("job")
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
+      count: applications.length,
       applications,
     });
   } catch (error) {
-    console.error("Get recruiter applications error:", error);
+    console.error(
+      "Get recruiter applications error:",
+      error
+    );
 
     return res.status(500).json({
-      message: "Server error while fetching recruiter applications",
+      message:
+        "Server error while fetching recruiter applications",
       error: error.message,
     });
   }
@@ -193,13 +242,17 @@ const updateApplicationStatus = async (req, res) => {
       });
     }
 
-    // Make sure recruiter owns this job
+    // =========================
+    // VERIFY JOB OWNERSHIP
+    // =========================
+
     if (
       job.recruiter.toString() !==
       recruiter._id.toString()
     ) {
       return res.status(403).json({
-        message: "You are not authorized to update this application",
+        message:
+          "You are not authorized to update this application",
       });
     }
 
@@ -212,10 +265,14 @@ const updateApplicationStatus = async (req, res) => {
       application,
     });
   } catch (error) {
-    console.error("Update application status error:", error);
+    console.error(
+      "Update application status error:",
+      error
+    );
 
     return res.status(500).json({
-      message: "Server error while updating application status",
+      message:
+        "Server error while updating application status",
       error: error.message,
     });
   }
@@ -255,7 +312,10 @@ const hireCandidate = async (req, res) => {
       });
     }
 
-    // Make sure this recruiter owns the job
+    // =========================
+    // VERIFY JOB OWNERSHIP
+    // =========================
+
     if (
       job.recruiter.toString() !==
       recruiter._id.toString()
@@ -266,14 +326,20 @@ const hireCandidate = async (req, res) => {
       });
     }
 
-    // Don't hire the same candidate twice
+    // =========================
+    // PREVENT DUPLICATE HIRING
+    // =========================
+
     if (application.status === "Hired") {
       return res.status(400).json({
         message: "This candidate has already been hired",
       });
     }
 
-    // Don't hire after job is closed
+    // =========================
+    // CHECK JOB STATUS
+    // =========================
+
     if (job.status === "closed") {
       return res.status(400).json({
         message:
@@ -281,15 +347,22 @@ const hireCandidate = async (req, res) => {
       });
     }
 
-    // Count currently hired candidates
+    // =========================
+    // COUNT HIRED CANDIDATES
+    // =========================
+
     const hiredCount = await Application.countDocuments({
       job: job._id,
       status: "Hired",
     });
 
-    // Check available slots
+    // =========================
+    // CHECK AVAILABLE SLOTS
+    // =========================
+
     if (hiredCount >= job.openings) {
       job.status = "closed";
+
       await job.save();
 
       return res.status(400).json({
@@ -298,11 +371,18 @@ const hireCandidate = async (req, res) => {
       });
     }
 
-    // Hire candidate
+    // =========================
+    // HIRE CANDIDATE
+    // =========================
+
     application.status = "Hired";
+
     await application.save();
 
-    // Calculate new count
+    // =========================
+    // CALCULATE NEW SLOT COUNT
+    // =========================
+
     const newHiredCount =
       await Application.countDocuments({
         job: job._id,
@@ -314,7 +394,10 @@ const hireCandidate = async (req, res) => {
       0
     );
 
-    // Close only when ALL openings are filled
+    // =========================
+    // AUTOMATICALLY CLOSE JOB
+    // =========================
+
     if (newHiredCount >= job.openings) {
       job.status = "closed";
     } else {

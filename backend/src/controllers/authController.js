@@ -5,26 +5,52 @@ const Candidate = require("../models/Candidate");
 const Recruiter = require("../models/Recruiter");
 const generateToken = require("../utils/generateToken");
 
+// =========================
+// REGISTER USER
+// CANDIDATE OR RECRUITER
+// =========================
+
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const {
+      name,
+      email,
+      password,
+      role = "candidate",
+      companyName,
+      companyDescription,
+      companyWebsite,
+      companyLocation,
+      phone,
+    } = req.body;
 
-    // Basic validation
-    if (!name || !email || !password || !role) {
+    if (!name || !email || !password) {
       return res.status(400).json({
-        message: "Name, email, password, and role are required",
+        message: "Name, email, and password are required",
       });
     }
 
-    // Only these roles can register publicly
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters long",
+      });
+    }
+
     if (!["candidate", "recruiter"].includes(role)) {
       return res.status(400).json({
-        message: "Invalid registration role",
+        message: "Invalid account role",
       });
     }
 
-    // Check whether email already exists
-    const existingUser = await User.findOne({ email });
+    if (role === "recruiter" && !companyName?.trim()) {
+      return res.status(400).json({
+        message: "Company name is required for recruiter registration",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
     if (existingUser) {
       return res.status(409).json({
@@ -32,36 +58,40 @@ const registerUser = async (req, res) => {
       });
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // Create user
     const user = await User.create({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password: hashedPassword,
       role,
     });
 
-    // Create role-specific profile
-    if (role === "candidate") {
-      await Candidate.create({
-        user: user._id,
-      });
+    try {
+      if (role === "candidate") {
+        await Candidate.create({ user: user._id });
+      } else {
+        await Recruiter.create({
+          user: user._id,
+          companyName: companyName.trim(),
+          companyDescription: companyDescription?.trim() || "",
+          companyWebsite: companyWebsite?.trim() || "",
+          companyLocation: companyLocation?.trim() || "",
+          phone: phone?.trim() || "",
+        });
+      }
+    } catch (profileError) {
+      await User.findByIdAndDelete(user._id);
+      throw profileError;
     }
 
-    if (role === "recruiter") {
-      await Recruiter.create({
-        user: user._id,
-        companyName: "Company not provided",
-      });
-    }
-
-    // Generate JWT
     const token = generateToken(user._id, user.role);
 
     return res.status(201).json({
-      message: "Registration successful",
+      message:
+        role === "recruiter"
+          ? "Recruiter registration successful"
+          : "Candidate registration successful",
       token,
       user: {
         id: user._id,
@@ -78,6 +108,11 @@ const registerUser = async (req, res) => {
     });
   }
 };
+
+// =========================
+// LOGIN USER
+// =========================
+
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -88,7 +123,9 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({
+      email: email.toLowerCase().trim(),
+    });
 
     if (!user) {
       return res.status(401).json({
@@ -102,10 +139,7 @@ const loginUser = async (req, res) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      password,
-      user.password
-    );
+    const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -133,6 +167,7 @@ const loginUser = async (req, res) => {
     });
   }
 };
+
 module.exports = {
   registerUser,
   loginUser,

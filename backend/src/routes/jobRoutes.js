@@ -4,6 +4,7 @@ const {
   createJob,
   getJobs,
   getJobById,
+  getRecruiterJobs,
   updateJob,
   closeJob,
   deleteJob,
@@ -14,7 +15,10 @@ const authorizeRoles = require("../middleware/roleMiddleware");
 
 const router = express.Router();
 
-// Create job
+// =========================
+// CREATE JOB
+// =========================
+
 router.post(
   "/",
   protect,
@@ -22,13 +26,34 @@ router.post(
   createJob
 );
 
-// Get all jobs
+// =========================
+// GET ALL PUBLIC JOBS
+// =========================
+
 router.get("/", getJobs);
 
-// Get single job
+// =========================
+// GET RECRUITER'S JOBS
+// IMPORTANT: BEFORE /:id
+// =========================
+
+router.get(
+  "/recruiter",
+  protect,
+  authorizeRoles("recruiter"),
+  getRecruiterJobs
+);
+
+// =========================
+// GET SINGLE JOB
+// =========================
+
 router.get("/:id", getJobById);
 
-// Update job
+// =========================
+// UPDATE JOB
+// =========================
+
 router.put(
   "/:id",
   protect,
@@ -36,7 +61,10 @@ router.put(
   updateJob
 );
 
-// Close job
+// =========================
+// CLOSE JOB
+// =========================
+
 router.patch(
   "/:id/close",
   protect,
@@ -44,7 +72,10 @@ router.patch(
   closeJob
 );
 
-// Delete job
+// =========================
+// DELETE JOB
+// =========================
+
 router.delete(
   "/:id",
   protect,

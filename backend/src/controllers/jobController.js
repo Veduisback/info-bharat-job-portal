@@ -22,12 +22,7 @@ const createJob = async (req, res) => {
       applicationDeadline,
     } = req.body;
 
-    if (
-      !title ||
-      !companyName ||
-      !location ||
-      !description
-    ) {
+    if (!title || !companyName || !location || !description) {
       return res.status(400).json({
         message:
           "Title, company name, location and description are required",
@@ -56,19 +51,59 @@ const createJob = async (req, res) => {
       });
     }
 
+    const minimumSalary =
+      salaryMin !== undefined && salaryMin !== ""
+        ? Number(salaryMin)
+        : undefined;
+
+    const maximumSalary =
+      salaryMax !== undefined && salaryMax !== ""
+        ? Number(salaryMax)
+        : undefined;
+
+    if (
+      minimumSalary !== undefined &&
+      Number.isNaN(minimumSalary)
+    ) {
+      return res.status(400).json({
+        message: "Minimum salary must be a valid number",
+      });
+    }
+
+    if (
+      maximumSalary !== undefined &&
+      Number.isNaN(maximumSalary)
+    ) {
+      return res.status(400).json({
+        message: "Maximum salary must be a valid number",
+      });
+    }
+
+    if (
+      minimumSalary !== undefined &&
+      maximumSalary !== undefined &&
+      maximumSalary < minimumSalary
+    ) {
+      return res.status(400).json({
+        message:
+          "Maximum salary cannot be less than minimum salary",
+      });
+    }
+
     const job = await Job.create({
       recruiter: recruiter._id,
-      title,
-      companyName,
-      location,
-      salaryMin,
-      salaryMax,
-      skills,
-      experienceRequired,
-      description,
+      title: title.trim(),
+      companyName: companyName.trim(),
+      location: location.trim(),
+      salaryMin: minimumSalary,
+      salaryMax: maximumSalary,
+      skills: Array.isArray(skills) ? skills : [],
+      experienceRequired: experienceRequired?.trim() || "",
+      description: description.trim(),
       employmentType,
       openings: numberOfOpenings,
-      applicationDeadline,
+      applicationDeadline:
+        applicationDeadline || undefined,
       status: "open",
     });
 
@@ -115,7 +150,6 @@ const getJobs = async (req, res) => {
         0
       );
 
-      // Only show jobs that still have openings
       if (slotsRemaining > 0) {
         jobsWithSlots.push({
           ...job.toObject(),
@@ -326,18 +360,24 @@ const updateJob = async (req, res) => {
       job.openings = numberOfOpenings;
     }
 
-    // Automatically determine status
     if (hiredCount >= job.openings) {
       job.status = "closed";
-    } else {
-      job.status = "open";
     }
 
     await job.save();
 
+    const slotsRemaining = Math.max(
+      job.openings - hiredCount,
+      0
+    );
+
     return res.status(200).json({
       message: "Job updated successfully",
-      job,
+      job: {
+        ...job.toObject(),
+        hiredCount,
+        slotsRemaining,
+      },
     });
   } catch (error) {
     console.error("Update job error:", error);
@@ -379,6 +419,12 @@ const closeJob = async (req, res) => {
       return res.status(403).json({
         message:
           "You are not authorized to close this job",
+      });
+    }
+
+    if (job.status === "closed") {
+      return res.status(400).json({
+        message: "Job is already closed",
       });
     }
 
